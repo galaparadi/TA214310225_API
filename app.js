@@ -27,7 +27,7 @@ mongoose.connect(keys.mongodb.dbURI, {useNewUrlParser: true, useCreateIndex : tr
     console.log('\x1b[33m%s\x1b[0m', 'connected to mongodb');
 });
 
-app.use('/sandbox', require('./routes/sandbox'))
+app.use('/sandbox', require('./routes/sandbox'));
 app.use('/users', require('./routes/users'));
 app.use('/workspaces', require('./routes/workspace'));
 app.use('/token', require('./routes/token'));
