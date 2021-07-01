@@ -1,7 +1,6 @@
 const User = require('../../models/user-model');
 const Feed = require('../../models/feed-model');
 const { getFeed } = require('../../lib/feed');
-var express = require('express');
 
 exports.getUsers = function(req,res,next){
 	User.find().exec()
