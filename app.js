@@ -16,23 +16,19 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(bearerMid());
 
-//set up session cookies
-app.use(cookieSession({
-    maxAge: 24 * 60 * 60 * 1000,
-    keys: [keys.session.cookieKey]
-}));
-
 
 mongoose.connect(keys.mongodb.dbURI, {useNewUrlParser: true, useCreateIndex : true, useUnifiedTopology: true}, () => {
     console.log('\x1b[33m%s\x1b[0m', 'connected to mongodb');
 });
 
 app.use('/sandbox', require('./routes/sandbox'));
+app.use('/file', require('./routes/file'));
 app.use('/users', require('./routes/users'));
 app.use('/workspaces', require('./routes/workspace'));
 app.use('/token', require('./routes/token'));
-app.use('/test', require('./routes/dummy'))
+app.use('/test', require('./routes/dummy'));
 app.use('/auth', require('./routes/auth'));
+app.use('/chat', require('./routes/chat'))
 app.use('/', require('./routes/index'));
 
 
