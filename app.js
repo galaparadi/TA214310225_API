@@ -28,7 +28,7 @@ app.use('/workspaces', require('./routes/workspace'));
 app.use('/token', require('./routes/token'));
 app.use('/test', require('./routes/dummy'));
 app.use('/auth', require('./routes/auth'));
-app.use('/chat', require('./routes/chat'))
+app.use('/chats', require('./routes/chat'));
 app.use('/', require('./routes/index'));
 
 
