@@ -3,15 +3,10 @@ const Schema = mongoose.Schema;
 var ObjectId = mongoose.Schema.Types.ObjectId;
 
 const notificationSchema = new Schema({
-    type: Number,
-    sender: ObjectId,
-    receiver: [ObjectId],
-    AcceptRedirect: [Schema.Types.Mixed],
-    DeclineRedirect: [Schema.Types.Mixed],
-    seen: {type: Boolean, default: false},
-    valid: {type: Boolean, default: true},
+    message: String,
+    notifid: ObjectId,
+    statusRead: Boolean,
     date: {type: Date, default: new Date()},
-    message: String
 });
 
 const Notification = mongoose.model('notification', notificationSchema);
