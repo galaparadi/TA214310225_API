@@ -4,11 +4,9 @@
  * Module dependencies.
  */
 
-var app = require('../app');
+var {app, notifHelper} = require('../app');
 var debug = require('debug')('nodejs:server');
 var http = require('http');
-var chatController = require('../controller/chat');
-const { Socket } = require('dgram');
 
 /**
  * Get port from environment and store in Express.
@@ -25,16 +23,16 @@ var server = http.createServer(app);
 
 // setup Socket.io chat server
 
-var io = require('socket.io')(server, {
+let io = require('socket.io')(server, {
   cors: {
-    origin: "http://localhost ", 
-    methods: ["GET","POST"], 
-    credentials: true,
-    allowedHeaders: ["my-custom-header"]
+    origin: "http://localhost", 
+    methods: ["GET","POST"],     
   }
 });
 
-chatController.nsp(io);
+io.on('connection', socket => {
+  notifHelper.io = io;
+});
 
 /**
  * Listen on provided port, on all network interfaces.

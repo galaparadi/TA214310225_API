@@ -1,13 +1,14 @@
-var createError = require('http-errors');
-var express = require('express');
-var path = require('path');
-var cookieParser = require('cookie-parser');
+let createError = require('http-errors');
+let express = require('express');
+let path = require('path');
+let cookieParser = require('cookie-parser');
 const cookieSession = require('cookie-session');
-var logger = require('morgan');
+let logger = require('morgan');
 const mongoose = require('mongoose');
 const keys = require('./config/keys');
 const bearerMid = require('express-bearer-token');
-var app = express();
+let app = express();
+let notifHelper = require('./lib/notif-object');
 
 app.use(logger('dev'));
 app.use(express.json());
@@ -20,7 +21,6 @@ app.use(bearerMid());
 mongoose.connect(keys.mongodb.dbURI, {useNewUrlParser: true, useCreateIndex : true, useUnifiedTopology: true}, () => {
     console.log('\x1b[33m%s\x1b[0m', 'connected to mongodb');
 });
-
 app.use('/sandbox', require('./routes/sandbox'));
 app.use('/file', require('./routes/file'));
 app.use('/users', require('./routes/users'));
@@ -47,4 +47,4 @@ app.use(function(err, req, res, next) {
   res.status(err.status || 500).json({message: "Something wrong, please look at console", status: 0});
 });
 
-module.exports = app;
+module.exports = {app, notifHelper};
