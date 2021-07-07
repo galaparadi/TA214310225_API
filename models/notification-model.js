@@ -1,11 +1,12 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
-var ObjectId = mongoose.Schema.Types.ObjectId;
 
 const notificationSchema = new Schema({
-    message: String,
-    notifid: ObjectId,
-    statusRead: Boolean,
+    initiator: String,
+    workspace: String,
+    receiver: String,
+    content: Object,
+    statusRead: {type: Boolean, default: false},
     date: {type: Date, default: new Date()},
 });
 
