@@ -3,11 +3,10 @@ const Schema = mongoose.Schema;
 var ObjectId = mongoose.Schema.Types.ObjectId;
 
 const commentSchema = new Schema({
-	author : {type: Schema.Types.ObjectId, ref: 'user'},
+	sender : String,
 	documentId : Schema.Types.ObjectId,
 	comment : String,
-	datePost : Date,
-	replyComment : [{type: Schema.Types.ObjectId, ref: 'user'}]
+	datePost :  { type: Date, default: new Date() },
 });
 
 const Comment = mongoose.model('comment', commentSchema);
