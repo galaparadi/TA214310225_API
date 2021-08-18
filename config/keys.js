@@ -6,7 +6,7 @@ module.exports = {
             clientSecret: '-LruvOxju0SFmtAlI7HlPhzm'
         },
         mongodb: {
-            dbURI: 'mongodb://localhost/dochub'
+            dbURI: 'mongodb://dev:dev@localhost/dochub'
         },
         session: {
             cookieKey: 'illbeback'
