@@ -2,6 +2,11 @@ var mongoose = require('mongoose');
 const Workspace = require('../../models/workspace-model');
 const stream = require('stream');
 const Document = require('../../models/document-model');
+const Notification = require('../../models/notification-model');
+const Comment = require('../../models/comment-model');
+let notifHelper = require('../../lib/notif-object');
+let { writeDocumentFile } = require('../../lib/fs-helper')
+const Version = require('../../models/version-model');
 
 exports.addFiletree = function (req, res, next) {
 	Workspace.findOne({ name: req.body.name })
@@ -15,40 +20,132 @@ exports.addFiletree = function (req, res, next) {
 					next(err);
 				})
 		})
-		.catch()
+		.catch(err => {
+			next(err);
+		})
 }
 
-exports.addDocument = function (req, res, next) {
-	let bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db);
-	let id = mongoose.Types.ObjectId();
+exports.joinWorkspace = async (req, res, next) => {
+	let { username: initiator } = req.body;
+	let { name: workspace } = req.params;
+	let workspaces = await Workspace.findOne({ name: workspace }).exec();
+	let { username: receiver } = await workspaces.getAdminUser()
 
-	let bufferstream = new stream.PassThrough();
-	bufferstream.end(req.file.buffer);
-	bufferstream.on('error', () => {
-		console.log("something error on bufferstream");
-		next(err);
-		return;
-	})
+	let notif = new Notification({
+		initiator, receiver, workspace,
+		type: Notification.notifType().ACTION,
+		content: {
+			message: `${initiator} ingin bergabung kedalam workspace ${workspace}`,
+			action: Notification.notifAction().JOIN_WORKSPACE,
+			data: {
+				joiningUser: initiator,
+				workspace: workspace,
+			},
+		}
+	});
+	await notif.save()
+	res.send({ status: 1, notif })
+}
 
-	bufferstream.pipe(bucket.openUploadStreamWithId(id, req.body['filename'], { metadata: "dudung" }))
-		.on('finish', () => {
-			let doc = new Document({ fsId: id, name: req.body['filename'], author: req.body.author });
+exports.getDocumentVersions = async (req, res, next) => {
+	try {
+		let { documentId } = req.query;
+		let versions = await Version.find({ id: documentId }).exec();
+		res.send({ status: 1, data: versions })
+	} catch (error) {
+		res.status(500).json({ staus: 0, message: error.message })
+	}
+}
 
-			Workspace.findOne({ name: req.params.name })
-				.exec()
-				.then(function (wp) {
-					wp.addDocument(doc);
-					res.json({ message: 'sukses' })
-				})
-				.catch(function (err) {
-					next(err);
-					return;
-				});
-		})
-		.on('error', () => {
-			console.log("terjadi error tak terduga");
-			res.status(500).json({ message: 'error' })
-		})
+exports.getDocumentVersion = async (req, res, next) => {
+	try {
+		let { documentId } = req.query;
+		let versions = await Version.find({ id: documentId }).exec();
+		res.send({ status: 1, data: versions })
+	} catch (error) {
+		res.status(500).json({ staus: 0, message: error.message })
+	}
+}
+
+exports.addDocument = async function (req, res, next) {
+	try {
+		let { filename, author } = req.body;
+		let { name } = req.params;
+		let file = req.file;
+
+		let metadata = { version: 1 }
+		let document = { name: filename, creator: author }
+		let workspace = await Workspace.findOne({ name }).exec();
+		let { error } = await workspace.addDocument({ document, metadata, file });
+		if (error) throw error;
+		res.send({ status: 1 });
+	} catch (error) {
+		console.log(error);
+		res.status(500).json({ status: 0, error: error.message })
+	}
+}
+
+/**
+ * 
+ * @param {*} req 
+ * @param {*} res 
+ * @param {*} next 
+ * @param {Object} body {documentName, documentId, username: auhtor}
+ */
+exports.askAddDocumentVersion = async function (req, res, next) {
+	let { author: initiator, documentId, filename } = req.body;
+	let { name: workspace } = req.params;
+	let { username: receiver } = await (await Workspace.findOne({ name: workspace }).exec()).getAdminUser();
+
+
+	try {
+		let { error, id } = await writeDocumentFile({ body: req.body, file: req.file, metadata: { type: req.file.mimetype } });
+		if (error) throw error;
+
+		let document = {
+			fsId: id,
+			author: initiator,
+			documentId,
+		}
+		let notif = new Notification({
+			initiator, receiver, workspace,
+			type: Notification.notifType().ACTION,
+			content: {
+				message: `${initiator} ingin menambahkan document version ${filename}`,
+				action: Notification.notifAction().ADD_NEW_VERSION,
+				data: {
+					document,
+					initiator,
+				},
+			}
+		});
+		await notif.save()
+		res.send({ status: 1, notif })
+	} catch (error) {
+		console.log(error);
+		return res.send({ error });
+	}
+}
+
+/**
+ * 
+ * @param {*} req
+ * @param {*} res 
+ * @param {*} next
+ * @param {Object} body {filename, file, author} 
+ */
+exports.addDocumentVersion = async function (req, res, next) {
+	try {
+		let { docid: documentId, name } = req.params;
+		let metadata = {};
+		let workspace = await Workspace.findOne({ name }).exec();
+		let document = await workspace.getDocument({ documentId });
+		document = await workspace.addNewDocumentVersion({ documentId, document: req.body, metadata, file: req.file })
+		res.send({ status: 1, workspace, documentId, document })
+	} catch (error) {
+		console.log(error);
+		res.status(500).json({ message: 'error' })
+	}
 }
 
 exports.addWorkspace = function (req, res, next) {
@@ -104,13 +201,24 @@ exports.getUsers = function (req, res, next) {
 		});
 }
 
-exports.putUser = function (req, res, next) {
-	Workspace.findOne({ name: req.params.name }).select("-__v")
+/**
+ * 
+ * @param {*} req 
+ * @param {*} res 
+ * @param {*} next
+ * @param {*} body {user, level}
+ * @param {*} params {name: workspaceName}
+ */
+exports.addUser = async function (req, res, next) {
+	let { user, level } = req.body;
+	let { name } = req.params;
+
+	Workspace.findOne({ name }).select("-__v")
 		.exec().then(function (workspace) {
 			if (workspace) {
 				let obj = {
-					user: req.body.user,
-					level: req.body.level,
+					user: user,
+					level: level,
 					disable: false,
 				}
 				workspace.addUser(obj)
@@ -126,15 +234,27 @@ exports.putUser = function (req, res, next) {
 		});
 }
 
+exports.getFeeds = async function (req, res, next) {
+	let feeds = await Notification.find({ workspace: req.params.name }).exec()
+	res.send({ status: 1, data: feeds });
+}
+
 exports.deleteUser = function (req, res, next) {
 	return false;
 }
 
+/**
+ * 
+ * @param {*} req 
+ * @param {*} res 
+ * @param {*} next 
+ * @
+ */
 exports.getDocuments = function (req, res, next) {
 	Workspace.findOne({ name: req.params.name })
 		.exec()
 		.then(function (wspace) {
-			wspace.getDocuments()
+			wspace.getDocuments({})
 				.then((data) => {
 					res.send({ status: 1, data });
 				});
@@ -142,11 +262,15 @@ exports.getDocuments = function (req, res, next) {
 		})
 }
 
+
 exports.getDocument = async (req, res, next) => {
+	let { name, docid } = req.params;
+
 	try {
-		let workspace = await Workspace.findOne({ name: req.params.name }).exec();
-		let document = await workspace.getDocument(req.params.docid);
+		let workspace = await Workspace.findOne({ name }).exec();
+		let document = await workspace.getDocument({ documentId: docid });
 		res.send({ status: 1, data: document });
+		// document = { addCategory, creator, dateCreated, documentId, enable, id, name, type }
 	} catch (err) {
 		next(err);
 	}
@@ -188,4 +312,25 @@ exports.updateDocument = async function (req, res, next) {
 					res.send({ status: 0, message: "API not ready yet" })
 				})
 		})
+}
+
+exports.addComment = async (req, res, next) => {
+	try {
+		let comment = new Comment(req.body);
+		await comment.save()
+		res.send(req.body)
+	} catch (error) {
+		res.send({ status: 0, message: error.message })
+	}
+}
+
+exports.getComments = async (req, res, next) => {
+	try {
+		let { docid } = req.params;
+		let comments = await Comment.find({ documentId: docid }).exec();
+		console.log(docid);
+		res.send({ status: 1, data: comments })
+	} catch (error) {
+		res.send({ status: 0, message: error.message })
+	}
 }

@@ -29,12 +29,13 @@ app.use('/token', require('./routes/token'));
 app.use('/test', require('./routes/dummy'));
 app.use('/auth', require('./routes/auth'));
 app.use('/chats', require('./routes/chat'));
+app.use('/notif', require('./routes/notif'));
 app.use('/', require('./routes/index'));
 
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
-  next(createError(404));
+  res.status(404).send({status: 0, message: 'path not found'});
 });
 
 // error handler

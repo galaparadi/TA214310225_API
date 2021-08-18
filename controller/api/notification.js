@@ -9,3 +9,10 @@ exports.putNotification = async (req, res, next) => {
         return next(error);
     }
 }
+
+exports.getNotification = async (req, res, next) => {
+    let { username: receiver } = req.params;
+
+    let notifications = await Notification.find({ receiver, type: Notification.notifType().ACTION }).sort({ _id: -1 }).exec();
+    res.send({ status: 1, notifications })
+}

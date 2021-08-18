@@ -1,6 +1,9 @@
 const User = require('../../models/user-model');
-const Feed = require('../../models/feed-model');
-const { getFeed } = require('../../lib/feed');
+const Notification = require('../../models/notification-model');
+
+exports.getFeeds = function(req,res,next) {
+
+}
 
 exports.getUsers = function(req,res,next){
 	User.find().exec()
@@ -82,16 +85,11 @@ exports.deleteUser = function(req,res){
 
 exports.getFeed = async function(req,res){
 	try {
+		let notif = await Notification.find({workspace:req.body.workspace})
+
 		let feeds = await getFeed();
 		res.send({status : 1, feeds});
 	} catch (error) {
-		res.status(500).send({status:0,message:err.message})
+		res.status(500).send({status:0,message:error.message})
 	}
-}
-
-//don't put this on controller
-exports.addFeed = async function(req,res){
-	let feed = new Feed({message: 'ada ada saja',workspace:'dudung'});
-	let ret = await feed.save();
-	res.send('tersimpan');
 }
