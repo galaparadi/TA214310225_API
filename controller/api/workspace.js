@@ -95,11 +95,15 @@ exports.addDocument = async function (req, res, next) {
 exports.askAddDocumentVersion = async function (req, res, next) {
 	let { author: initiator, documentId, filename } = req.body;
 	let { name: workspace } = req.params;
+	let fileBuffer = req.file.buffer;
 	let { username: receiver } = await (await Workspace.findOne({ name: workspace }).exec()).getAdminUser();
+	let metadata = {
+		type: req.file.mimetype,
+	}
 
 
 	try {
-		let { error, id } = await writeDocumentFile({ body: req.body, file: req.file, metadata: { type: req.file.mimetype } });
+		let { error, id } = await writeDocumentFile({ body: req.body, fileBuffer, metadata });
 		if (error) throw error;
 
 		let document = {
@@ -333,4 +337,20 @@ exports.getComments = async (req, res, next) => {
 	} catch (error) {
 		res.send({ status: 0, message: error.message })
 	}
+}
+
+exports.test = async (req, res, next) => {
+	let { fsid } = req.params;
+	let { accessToken, refreshToken, fileId } = req.body;
+	let { uploadToGDrive } = require('../../lib/fs-helper');	
+	let response = await uploadToGDrive({ fsid, accessToken, refreshToken });
+	res.send('done');
+	return;
+	let { writeDocumentFileFromGdrive, downloadFromDrive } = require('../../lib/fs-helper');
+	let fileBuffer = await downloadFromDrive({ accessToken, refreshToken, fileId });
+	let metadata = {
+		version: 11
+	}
+	await writeDocumentFileFromGdrive({ body: req.body, fileBuffer: fileBuffer.data, metadata });
+	res.send(fileBuffer.data);
 }
