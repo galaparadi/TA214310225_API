@@ -6,12 +6,12 @@ module.exports = {
             clientSecret: '-LruvOxju0SFmtAlI7HlPhzm'
         },
         mongodb: {
-            dbURI: 'mongodb://dev:dev@localhost/dochub'
+            dbURI: process.env.MONGODB_URI
         },
         session: {
-            cookieKey: 'illbeback'
+            cookieKey: process.env.COOKIE_SECRET
         },
         token: {
-            secret: 'dudungmamatselalusetia'
+            secret: process.env.TOKEN_SECRET
         }
 };

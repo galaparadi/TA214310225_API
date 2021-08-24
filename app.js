@@ -1,8 +1,8 @@
+require('dotenv').config();
 let createError = require('http-errors');
 let express = require('express');
 let path = require('path');
 let cookieParser = require('cookie-parser');
-const cookieSession = require('cookie-session');
 let logger = require('morgan');
 const mongoose = require('mongoose');
 const keys = require('./config/keys');
@@ -18,8 +18,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(bearerMid());
 
 
-mongoose.connect(keys.mongodb.dbURI, {useNewUrlParser: true, useCreateIndex : true, useUnifiedTopology: true}, () => {
-    console.log('\x1b[33m%s\x1b[0m', 'connected to mongodb');
+mongoose.connect(keys.mongodb.dbURI, { useNewUrlParser: true, useCreateIndex: true, useUnifiedTopology: true }, () => {
+  console.log('\x1b[33m%s\x1b[0m', 'connected to mongodb');
 });
 app.use('/sandbox', require('./routes/sandbox'));
 app.use('/file', require('./routes/file'));
@@ -34,18 +34,18 @@ app.use('/', require('./routes/index'));
 
 
 // catch 404 and forward to error handler
-app.use(function(req, res, next) {
-  res.status(404).send({status: 0, message: 'path not found'});
+app.use(function (req, res, next) {
+  res.status(404).send({ status: 0, message: 'path not found' });
 });
 
 // error handler
-app.use(function(err, req, res, next) {
+app.use(function (err, req, res, next) {
   // set locals, only providing error in development
   //console.log('error catched');
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
   console.log(err);
-  res.status(err.status || 500).json({message: "Something wrong, please look at console", status: 0});
+  res.status(err.status || 500).json({ message: "Something wrong, please look at console", status: 0 });
 });
 
-module.exports = {app, notifHelper};
+module.exports = { app, notifHelper };
