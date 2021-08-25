@@ -175,8 +175,8 @@ workspaceSchema.methods.getUsersDetail = function () {
 			idUser: "$detailUser._id",
 			username: "$detailUser.username",
 			email: "$detailUser.email",
-			level: "$users.level",
-			disable: "$users.disable",
+			level: 1,
+			disable: 1,
 		}
 	}
 
