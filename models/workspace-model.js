@@ -9,7 +9,7 @@ const ObjectId = mongoose.Schema.Types.ObjectId;
 const subDocumentSchema = new Schema({
 	name: String,
 	type: String,
-	creator: { type: ObjectId, ref: 'user' },
+	author: { type: ObjectId, ref: 'user' },
 	category: Schema.Types.ObjectId,
 	documentId: { type: ObjectId, ref: 'document' },
 	enable: { type: Boolean, default: true },
@@ -53,7 +53,7 @@ workspaceSchema.methods.getDocuments = async function ({ limit = 0 }) {
  */
 workspaceSchema.methods.getDocument = async function ({ documentId }) {
 	let subDoc = new SubDocument(this.documents.find(document => String(document.documentId) === String(documentId)));
-	await subDoc.populate('creator').populate('documentId').execPopulate();
+	await subDoc.populate('author').populate('documentId').execPopulate();
 	return subDoc;
 }
 
@@ -82,14 +82,24 @@ workspaceSchema.methods.addNewDocumentVersion = async function ({ fsId, document
 	}
 }
 
-workspaceSchema.methods.addDocument = async function ({ document: body, metadata, file }) {
+workspaceSchema.methods.pushDocument = async function (subDocument) {
 	try {
-		let { id: fileId, error } = await writeDocumentFile({ body, file, metadata });
+		let document = new SubDocument(subDocument);
+		this.documents.push(document)
+	} catch (error) {
+		console.log(error);
+		return { error }
+	}
+}
+
+workspaceSchema.methods.addDocument = async function ({ body, metadata, file }) {
+	try {
+		let { id: fileId, error } = await writeDocumentFile({ body, fileBuffer: file.buffer, metadata });
 		if (error) throw error;
-		let document = new Document({ name: body.name, creator: body.creator });
+		let document = new Document({ name: body.filename, author: body.author });
 		document.version.push(fileId);
 
-		let subDocument = new SubDocument({ name: body.name, creator: body.creator, documentId: document.id });
+		let subDocument = new SubDocument({ name: body.filename, author: body.author, documentId: document.id });
 		this.documents.push(subDocument);
 
 		await document.save();
