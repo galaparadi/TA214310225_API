@@ -3,6 +3,7 @@ const Workspace = require('../../models/workspace-model');
 const stream = require('stream');
 const Document = require('../../models/document-model');
 const Notification = require('../../models/notification-model');
+const User = require('../../models/user-model')
 const Comment = require('../../models/comment-model');
 let notifHelper = require('../../lib/notif-object');
 let { writeDocumentFile } = require('../../lib/fs-helper')
@@ -67,16 +68,53 @@ exports.getDocumentVersion = async (req, res, next) => {
 	}
 }
 
+exports.askAddDocument = async function (req, res, next) {
+	//TODO: add document for non-admin user
+	try {
+		let { name: workspace, } = req.params;
+		let file = req.file;
+		let { filename, author } = req.body;
+
+		let metadata = { version: 1, type: req.file.mimetype, valid: false, workspace, }
+		let { error, id } = await writeDocumentFile({ body: req.body, metadata, fileBuffer: file.buffer });
+
+		let { username: receiver } = await (await Workspace.findOne({ name: workspace }).exec()).getAdminUser();
+		let { username: initiator } = await User.findById(author).exec();
+		let document = {
+			name: filename,
+			author,
+			version: [id]
+		}
+
+		let notif = new Notification({
+			initiator, receiver, workspace,
+			type: Notification.notifType().ACTION,
+			content: {
+				message: `${initiator} ingin menambahkan document ${filename}`,
+				action: Notification.notifAction().ADD_DOCUMENT,
+				data: {
+					document,
+					workspace,
+				},
+			}
+		});
+		await notif.save()
+		res.send({ status: 1 });
+	} catch (error) {
+		console.log(error);
+		res.send({ status: 0 })
+	}
+}
+
 exports.addDocument = async function (req, res, next) {
 	try {
-		let { filename, author } = req.body;
+		let { filename, author, 'author-level': authorLevel } = req.body;
 		let { name } = req.params;
 		let file = req.file;
 
-		let metadata = { version: 1 }
-		let document = { name: filename, creator: author }
+		let metadata = { version: 1, type: req.file.mimetype, valid: true, workspace: name }
 		let workspace = await Workspace.findOne({ name }).exec();
-		let { error } = await workspace.addDocument({ document, metadata, file });
+		let { error } = await workspace.addDocument({ body: req.body, metadata, file, });
 		if (error) throw error;
 		res.send({ status: 1 });
 	} catch (error) {
@@ -93,14 +131,15 @@ exports.addDocument = async function (req, res, next) {
  * @param {Object} body {documentName, documentId, username: auhtor}
  */
 exports.askAddDocumentVersion = async function (req, res, next) {
-	let { author: initiator, documentId, filename } = req.body;
+	let { author: initiator, documentId, filename, note } = req.body;
 	let { name: workspace } = req.params;
 	let fileBuffer = req.file.buffer;
 	let { username: receiver } = await (await Workspace.findOne({ name: workspace }).exec()).getAdminUser();
 	let metadata = {
 		type: req.file.mimetype,
+		note,
+		active: false,
 	}
-
 
 	try {
 		let { error, id } = await writeDocumentFile({ body: req.body, fileBuffer, metadata });
@@ -342,7 +381,7 @@ exports.getComments = async (req, res, next) => {
 exports.test = async (req, res, next) => {
 	let { fsid } = req.params;
 	let { accessToken, refreshToken, fileId } = req.body;
-	let { uploadToGDrive } = require('../../lib/fs-helper');	
+	let { uploadToGDrive } = require('../../lib/fs-helper');
 	let response = await uploadToGDrive({ fsid, accessToken, refreshToken });
 	res.send('done');
 	return;

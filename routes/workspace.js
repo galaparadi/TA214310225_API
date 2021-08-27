@@ -15,7 +15,6 @@ router.get('/', (req, res) => { res.status(403).json({ message: "Forbidden" }) }
     .post('/', WorkspaceAPIController.addWorkspace)
     .get('/:name', WorkspaceAPIController.getWorkspace)
     .put('/:name', WorkspaceAPIController.updateWorkspace)
-    .post('/:name/join', WorkspaceAPIController.joinWorkspace)
     .get('/:name/feeds', WorkspaceAPIController.getFeeds)
     .get('/:name/users', WorkspaceAPIController.getUsers)
     .post('/:name/users', WorkspaceAPIController.addUser)
@@ -23,10 +22,12 @@ router.get('/', (req, res) => { res.status(403).json({ message: "Forbidden" }) }
     .put('/:name/documents', WorkspaceAPIController.updateDocument)
     .put('/:name/filetree', WorkspaceAPIController.addFiletree)
     .delete('/:name/user', WorkspaceAPIController.deleteUser)
+    .post('/:name/join', WorkspaceAPIController.joinWorkspace)
 
 //document manage endpoint
 router.get('/:name/documents', WorkspaceAPIController.getDocuments)
     .post('/:name/documents', upload.single('file'), WorkspaceAPIController.addDocument)
+    .post('/:name/documents/submit', upload.single('file'), WorkspaceAPIController.askAddDocument)
     .get('/:name/documents/:docid', WorkspaceAPIController.getDocument)
     .get('/:name/documents/:docid/file', WorkspaceAPIController.getDocumentFile)
     .get('/:name/documents/:docid/versions', WorkspaceAPIController.getDocumentVersions)
