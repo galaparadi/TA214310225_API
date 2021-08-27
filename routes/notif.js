@@ -5,11 +5,15 @@ const router = express.Router();
 router.post('/', async (req, res) => {
     res.status(501).send('not implemented')
 })
+    .get('/', (req, res, next) => {
+
+    })
 
 router.put('/:id/action', async (req, res) => {
     try {
         let notif = await Notification.findById(req.params.id).exec()
         let { message, status } = await notif.executeAction();
+        if(status===0) throw new Error();
         notif.statusRead = true;
         await notif.save();
         res.send({ status: 1, message });

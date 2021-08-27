@@ -24,7 +24,7 @@ notificationSchema.statics.notifAction = function () {
 
 notificationSchema.methods.executeAction = async function () {
     if (this.type !== NOTIF_TYPE.ACTION) return { error: { message: 'not action notif type' } };
-    return await actionHelper[this.content.action](this.content);
+    return await actionHelper[this.content.action](this.content.data);
 }
 
 notificationSchema.statics.pushNotif = async function ({ initiator, receiver, workspace, type, content }) {
