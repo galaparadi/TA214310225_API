@@ -37,6 +37,8 @@ router.get('/:name/documents', WorkspaceAPIController.getDocuments)
     .post('/:name/documents/:docid/comments', WorkspaceAPIController.addComment)
     .get('/:name/documents/:docid/comments', WorkspaceAPIController.getComments)
 
+router.get('/:name/feeds', WorkspaceAPIController.getFeeds)
+
 router.get('/test/:id', (req, res, next) => {
     res.send('woosh')
 })

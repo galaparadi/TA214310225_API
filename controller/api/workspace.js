@@ -278,8 +278,14 @@ exports.addUser = async function (req, res, next) {
 }
 
 exports.getFeeds = async function (req, res, next) {
-	let feeds = await Notification.find({ workspace: req.params.name }).exec()
+	try {
+		let { feeds } = await Notification.find({ workspace: req.params.name, type: Notification.notifType().FEED }).exec()
+		console.log(feeds);
 	res.send({ status: 1, data: feeds });
+	} catch (error) {
+		console.log(error);
+		res.send({ status: 0, error })
+	}
 }
 
 exports.deleteUser = function (req, res, next) {

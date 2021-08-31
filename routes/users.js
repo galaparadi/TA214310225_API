@@ -14,7 +14,6 @@ router.post('/', UserAPIController.addUser)
   .get('/:username/workspaces', UserAPIController.getWorkspaces)
   .put('/:username', UserAPIController.updateUser)
   .delete('/:username', UserAPIController.deleteUser)
-  .get('/:username/feeds', UserAPIController.getFeed)
   .put('/:username/notifications', NotificationAPIController.putNotification) //FIXME: maybe don't need
   .get('/:username/notifications', NotificationAPIController.getNotification)
   .get('/:username/feeds', UserAPIController.getFeeds)
