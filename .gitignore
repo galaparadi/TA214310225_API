@@ -59,3 +59,9 @@ typings/
 
 # next.js build output
 .next
+
+# mongodb playground
+*.mongodb
+
+# sandboxing
+routes/sandbox.js
