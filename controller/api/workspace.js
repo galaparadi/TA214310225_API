@@ -5,9 +5,16 @@ const Document = require('../../models/document-model');
 const Notification = require('../../models/notification-model');
 const User = require('../../models/user-model')
 const Comment = require('../../models/comment-model');
+const DocumentFs = require('../../models/file-model');
 let notifHelper = require('../../lib/notif-object');
-let { writeDocumentFile } = require('../../lib/fs-helper')
+let { writeDocumentFile, downloadFromDrive, writeDocumentFileFromGdrive, uploadToDropbox } = require('../../lib/fs-helper')
 const Version = require('../../models/version-model');
+let { fsWriter: writeFile, fsWriter } = require('../../lib/fswriter.js')
+
+exports.testControll = async function (req, res, next) {
+	let fs = await DocumentFs.findByIdAndDelete(req.params.id).exec();
+	res.send(fs);
+}
 
 exports.addFiletree = function (req, res, next) {
 	Workspace.findOne({ name: req.body.name })
@@ -68,23 +75,51 @@ exports.getDocumentVersion = async (req, res, next) => {
 	}
 }
 
+/**
+ * 
+ * @param {*} req 
+ * @param {*} res 
+ * @param {*} next 
+ * @returns 
+ * @description askAddDocumentV2
+ */
 exports.askAddDocument = async function (req, res, next) {
-	//TODO: add document for non-admin user
+	let fsId = "";
 	try {
 		let { name: workspace, } = req.params;
+		let {
+			filename, author,
+			'access-token': accessToken,
+			'refresh-token': refreshToken,
+			'file-id': fileId,
+			'mime-type': mimeType,
+			'upload-method': uploadMethod,
+		} = req.body;
 		let file = req.file;
-		let { filename, author } = req.body;
+		let type = file ? file.mimetype : {}
+		let fileBuffer = file ? file.buffer : {}
 
-		let metadata = { version: 1, type: req.file.mimetype, valid: false, workspace, }
-		let { error, id } = await writeDocumentFile({ body: req.body, metadata, fileBuffer: file.buffer });
+		let metadata = {
+			version: 1,
+			type: type,
+			valid: false,
+			workspace,
+			author,
+		}
 
-		let { username: receiver } = await (await Workspace.findOne({ name: workspace }).exec()).getAdminUser();
-		let { username: initiator } = await User.findById(author).exec();
 		let document = {
 			name: filename,
 			author,
-			version: [id]
+			version: [],
 		}
+
+		let { id } = await writeFile(uploadMethod, { accessToken, filename, fileId, mimeType, fileBuffer, metadata });
+		fsId = id;
+		document.version.push(id);
+
+		let { username: receiver } = await (await Workspace.findOne({ name: workspace }).exec()).getAdminUser();
+		let { username: initiator } = await User.findById(author).exec();
+
 
 		let notif = new Notification({
 			initiator, receiver, workspace,
@@ -98,25 +133,59 @@ exports.askAddDocument = async function (req, res, next) {
 				},
 			}
 		});
+
 		await notif.save()
-		res.send({ status: 1 });
+		return res.send({ status: 1, message: 'berhasil upload, menunggu konfirmasi admin workspace' })
 	} catch (error) {
-		console.log(error);
-		res.send({ status: 0 })
+		await DocumentFs.findByIdAndDelete(fsId).exec();
+		res.status(500).send({ status: 0, message: error.message })
 	}
 }
 
 exports.addDocument = async function (req, res, next) {
 	try {
-		let { filename, author, 'author-level': authorLevel } = req.body;
-		let { name } = req.params;
+		let { name: workspaceName, } = req.params;
+		let {
+			filename, author,
+			'access-token': accessToken,
+			'refresh-token': refreshToken,
+			'file-id': fileId,
+			'mime-type': mimeType,
+			'upload-method': uploadMethod,
+		} = req.body;
 		let file = req.file;
+		let type = file ? file.mimetype : {}
+		let fileBuffer = file ? file.buffer : {}
 
-		let metadata = { version: 1, type: req.file.mimetype, valid: true, workspace: name }
-		let workspace = await Workspace.findOne({ name }).exec();
-		let { error } = await workspace.addDocument({ body: req.body, metadata, file, });
+		let metadata = {
+			version: 1,
+			type: type,
+			valid: false,
+			workspace: workspaceName,
+			author,
+		}
+		let workspace = await Workspace.findOne({ name: workspaceName }).exec();
+		let user = await User.findById(author).exec();
+
+		let { id } = await fsWriter(uploadMethod, { accessToken, filename, fileId, mimeType, fileBuffer, metadata })
+		let document = new Document({ name: filename, author });
+		document.addVersion({ fsId: id });
+		let { error } = await workspace.addDocument({ filename, author, metadata, documentId: document.id });
 		if (error) throw error;
-		res.send({ status: 1 });
+
+
+		let notif = await Notification.pushNotif({
+			initiator: user.username, workspace: workspaceName,
+			type: Notification.notifType().FEED,
+			content: {
+				message: `${user.username} menambahkan dokumen ${filename}`,
+			}
+		});
+
+		await notif.save();
+		await document.save();
+		await workspace.save();
+		res.send({ status: 1, message: 'sukses menambahkan dokumen' });
 	} catch (error) {
 		console.log(error);
 		res.status(500).json({ status: 0, error: error.message })
@@ -165,7 +234,6 @@ exports.askAddDocumentVersion = async function (req, res, next) {
 		await notif.save()
 		res.send({ status: 1, notif })
 	} catch (error) {
-		console.log(error);
 		return res.send({ error });
 	}
 }
@@ -281,7 +349,7 @@ exports.getFeeds = async function (req, res, next) {
 	try {
 		let { feeds } = await Notification.find({ workspace: req.params.name, type: Notification.notifType().FEED }).exec()
 		console.log(feeds);
-	res.send({ status: 1, data: feeds });
+		res.send({ status: 1, data: feeds });
 	} catch (error) {
 		console.log(error);
 		res.send({ status: 0, error })
@@ -329,8 +397,12 @@ exports.getDocumentFile = async (req, res, next) => {
 	let workspace = await Workspace.findOne({ name: req.params.name }).exec()
 	let fileId = workspace.documents.find(item => item._id == req.params.docid).fsId
 
-	var bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db);
-	var downloadstream = bucket.openDownloadStream(mongoose.Types.ObjectId(fileId));
+	let bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db);
+	let downloadstream = bucket.openDownloadStream(mongoose.Types.ObjectId(fileId));
+
+	//TODO: respon type harus sesuai
+	res.type('application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+
 	downloadstream.on('error', function (error) {
 		console.log("something happen on downoadstream");
 		next(error);
@@ -382,20 +454,4 @@ exports.getComments = async (req, res, next) => {
 	} catch (error) {
 		res.send({ status: 0, message: error.message })
 	}
-}
-
-exports.test = async (req, res, next) => {
-	let { fsid } = req.params;
-	let { accessToken, refreshToken, fileId } = req.body;
-	let { uploadToGDrive } = require('../../lib/fs-helper');
-	let response = await uploadToGDrive({ fsid, accessToken, refreshToken });
-	res.send('done');
-	return;
-	let { writeDocumentFileFromGdrive, downloadFromDrive } = require('../../lib/fs-helper');
-	let fileBuffer = await downloadFromDrive({ accessToken, refreshToken, fileId });
-	let metadata = {
-		version: 11
-	}
-	await writeDocumentFileFromGdrive({ body: req.body, fileBuffer: fileBuffer.data, metadata });
-	res.send(fileBuffer.data);
 }
